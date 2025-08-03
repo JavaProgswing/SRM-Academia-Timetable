@@ -3,4 +3,4 @@ __pycache__/
 .env
 creds/*
 data/*
-t_data/*
+t_data/timetable_base64.json
