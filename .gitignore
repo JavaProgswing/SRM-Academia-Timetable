@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+.env
+creds/*
+data/*
+t_data/*
