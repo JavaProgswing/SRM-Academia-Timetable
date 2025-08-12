@@ -27,3 +27,5 @@ if __name__ == "__main__":
         json.dump(output, f, indent=2)
 
     print("Timetables saved to /t_data")
+    # This script generates the timetable images and saves them to the t_data directory.
+    # Make sure to run this after extractor_test.py to generate the necessary JSON files.

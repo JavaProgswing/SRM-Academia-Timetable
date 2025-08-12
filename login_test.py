@@ -9,3 +9,5 @@ if __name__ == "__main__":
     password = os.getenv("PASSWORD")
     filename = pickle_login(username, password)
     print(f"Session saved to {filename}")
+    # Run this script to save the session to a pickle file.
+    # Make sure to set the USERNAME and PASSWORD environment variables in a .env file before running this script.

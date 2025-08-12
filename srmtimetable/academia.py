@@ -200,7 +200,7 @@ def parse_student_details(html_content):
 
     all_td = table.find_all("td")
     columns_per_course = 11
-    for i in range(columns_per_course + 1, len(all_td), columns_per_course):
+    for i in range(columns_per_course, len(all_td), columns_per_course):
         if i + columns_per_course > len(all_td):
             break
         tds = all_td[i : i + columns_per_course]

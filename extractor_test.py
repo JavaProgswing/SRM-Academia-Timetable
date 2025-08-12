@@ -19,6 +19,8 @@ def main():
     calendar_html = fetch_calendar_html(session, semester=student_details["Semester"])
     calendar_events = parse_calendar_events(calendar_html)
     save_to_file(f'{{"data": {json.dumps(calendar_events)}}}', "calendar_events.json")
+    # Saves the student details, timetable, and calendar events to JSON files.
+    # Make sure to generate the session pickle file first using login_test.py.
 
 
 if __name__ == "__main__":

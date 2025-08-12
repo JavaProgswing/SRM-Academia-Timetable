@@ -1,6 +1,7 @@
 import base64
 import pickle
 import base64
+import os
 from io import BytesIO
 import time
 from .academia import login
@@ -41,6 +42,7 @@ def save_to_file(data, filename):
         data (any): The data to save.
         filename (str): The name of the file to save the data to.
     """
+    os.makedirs("data", exist_ok=True)
     with open(f"data/{filename}", "w") as f:
         f.write(data)
 
