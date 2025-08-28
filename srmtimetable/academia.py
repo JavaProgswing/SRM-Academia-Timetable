@@ -32,13 +32,14 @@ def login(username, password):
 
     lookup_payload = {
         "mode": "primary",
-        "cli_time": int(time.time()),
+        "cli_time": int(time.time() * 1000),  # milliseconds, not seconds
         "servicename": "ZohoCreator",
         "service_language": "en",
         "serviceurl": f"{BASE_URL}/portal/academia-academic-services/redirectFromLogin",
     }
+
     headers = {
-        "Content-Type": "application/x-www-form-urlencoded",
+        "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
         "Accept": "*/*",
         "Accept-Language": "en-US,en;q=0.9",
         "sec-ch-ua": '"Not(A:Brand";v="99", "Google Chrome";v="133", "Chromium";v="133"',
@@ -49,6 +50,8 @@ def login(username, password):
         "sec-fetch-site": "same-origin",
         "x-zcsrf-token": "iamcsrcoo=3c59613cb190a67effa5b17eaba832ef1eddaabeb7610c8c6a518b753bc73848b483b007a63f24d94d67d14dda0eca9f0c69e027c0ebd1bb395e51b2c6291d63",
         "cookie": "npfwg=1; npf_r=; npf_l=www.srmist.edu.in; npf_u=https://www.srmist.edu.in/faculty/dr-g-y-rajaa-vikhram/; zalb_74c3a1eecc=44130d4069ebce16724b1740d9128cae; ZCNEWUIPUBLICPORTAL=true; zalb_f0e8db9d3d=93b1234ae1d3e88e54aa74d5fbaba677; stk=efbb3889860a8a5d4a9ad34903359b4e; zccpn=3c59613cb190a67effa5b17eaba832ef1eddaabeb7610c8c6a518b753bc73848b483b007a63f24d94d67d14dda0eca9f0c69e027c0ebd1bb395e51b2c6291d63; zalb_3309580ed5=2f3ce51134775cd955d0a3f00a177578; CT_CSRF_TOKEN=9d0ab1e6-9f71-40fd-826e-7229d199b64d; iamcsr=3c59613cb190a67effa5b17eaba832ef1eddaabeb7610c8c6a518b753bc73848b483b007a63f24d94d67d14dda0eca9f0c69e027c0ebd1bb395e51b2c6291d63; _zcsr_tmp=3c59613cb190a67effa5b17eaba832ef1eddaabeb7610c8c6a518b753bc73848b483b007a63f24d94d67d14dda0eca9f0c69e027c0ebd1bb395e51b2c6291d63; npf_fx=1; _ga_QNCRQG0GFE=GS1.1.1737645192.5.0.1737645194.58.0.0; TS014f04d9=0190f757c98d895868ec35d391f7090a39080dd8e7be840ed996d7e2827e600c5b646207bb76666e56e22bfaf8d2c06ec3c913fe80; cli_rgn=IN; JSESSIONID=E78E4C7013F0D931BD251EBA136D57AE; _ga=GA1.3.1900970259.1737341486; _gid=GA1.3.1348593805.1737687406; _gat=1; _ga_HQWPLLNMKY=GS1.3.1737687405.1.0.1737687405.0.0.0",
+        "Referer": f"{BASE_URL}/accounts/p/10002227248/signin?hide_fp=true&servicename=ZohoCreator&service_language=en&css_url=/49910842/academia-academic-services/downloadPortalCustomCss/login&dcc=true&serviceurl={BASE_URL}%2Fportal%2Facademia-academic-services%2FredirectFromLogin",
+        "Referrer-Policy": "strict-origin-when-cross-origin",
     }
 
     # Step 1: Lookup user
@@ -62,6 +65,9 @@ def login(username, password):
 
         if status_code == 400 and "HIP" in data.get("message", ""):
             raise Exception("Captcha required; automation not supported")
+        print(url_lookup)
+        print(lookup_payload)
+        print(data)
         raise Exception(f"Lookup failed: {lookup_msg}")
 
     if "User exists" not in data.get("message", ""):

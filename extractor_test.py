@@ -10,7 +10,7 @@ from srmtimetable.academia import (
 
 
 def main():
-    session = load_pickle_login("yk9852_1754199125.pickle")
+    session = load_pickle_login("yk9852_1756393627.pickle")
     timetable_html = fetch_timetable_page(session)
     student_details = parse_student_details(timetable_html)
     save_to_file(f'{{"data": {json.dumps(student_details)}}}', "student_details.json")
