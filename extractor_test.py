@@ -10,16 +10,17 @@ from srmtimetable.academia import (
 
 
 def main():
-    session = load_pickle_login("yk9852_1756393627.pickle")
+    # Load filename from config.json
+    with open("config.json", "r") as config_file:
+        config = json.load(config_file)
+        login_file = config.get("login_file", "session.pkl")
+    session = load_pickle_login(login_file)
     timetable_html = fetch_timetable_page(session)
     student_details = parse_student_details(timetable_html)
     save_to_file(f'{{"data": {json.dumps(student_details)}}}', "student_details.json")
     timetable = get_timetable(student_details)
     save_to_file(f'{{"data": {json.dumps(timetable)}}}', "timetable.json")
-    calendar_html = fetch_calendar_html(session, semester=student_details["Semester"])
-    calendar_events = parse_calendar_events(calendar_html)
-    save_to_file(f'{{"data": {json.dumps(calendar_events)}}}', "calendar_events.json")
-    # Saves the student details, timetable, and calendar events to JSON files.
+    # Saves the student details and timetable to JSON files.
     # Make sure to generate the session pickle file first using login_test.py.
 
 

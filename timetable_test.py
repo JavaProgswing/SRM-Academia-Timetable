@@ -7,10 +7,8 @@ if __name__ == "__main__":
     # Load JSON data from files
     with open("data/timetable.json", "r") as f:
         timetable_data = json.load(f)["data"]
-    with open("data/calendar_events.json", "r") as f:
-        calendar_data = json.load(f)["data"]
 
-    output = generate(timetable_data, calendar_data)
+    output = generate(timetable_data)
 
     os.makedirs("t_data", exist_ok=True)
     # Save combined image

@@ -4,6 +4,7 @@ from datetime import datetime
 import re
 from bs4 import BeautifulSoup
 import html
+import calendar
 
 BASE_URL = "https://academia.srmist.edu.in"
 
@@ -101,47 +102,42 @@ def login(username, password):
     return s
 
 
-def fetch_timetable_page(session: requests.Session):
-    now = datetime.now()
-    year = now.year
+def fetch_timetable_page(session: requests.Session) -> str:
+    url = (
+        "https://academia.srmist.edu.in/"
+        "srm_university/academia-academic-services/page/"
+        "My_Time_Table_2023_24"
+    )
 
-    # month = now.month
-    # if 8 <= month <= 12:
-    #     start_year = year - 1
-    #     end_year = year
-    # else:
-    #     start_year = year - 2
-    #     end_year = year - 1
-    start_year = year - 2
-    end_year = year - 1
-
-    timetable_url = f"{BASE_URL}/srm_university/academia-academic-services/page/My_Time_Table_{start_year}_{str(end_year)[-2:]}"
     headers = {
-        "Accept": "*/*",
-        "Accept-Language": "en-US,en;q=0.9",
-        "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-        "Sec-Fetch-Dest": "empty",
-        "Sec-Fetch-Mode": "cors",
-        "Sec-Fetch-Site": "same-origin",
         "X-Requested-With": "XMLHttpRequest",
-        "Referer": BASE_URL,
-        "Referrer-Policy": "strict-origin-when-cross-origin",
-        "Cache-Control": "private, max-age=120, must-revalidate",
+        "Referer": "https://academia.srmist.edu.in/",
+        "Accept": "*/*",
     }
 
-    response = session.get(timetable_url, headers=headers)
-    response.raise_for_status()
-    raw_html = response.text
+    resp = session.get(url, headers=headers)
+    resp.raise_for_status()
 
-    parts = raw_html.split(".sanitize('")
-    if len(parts) < 2:
-        raise Exception("Invalid timetable page format, .sanitize string not found")
+    html = resp.text
 
-    hex_encoded = parts[1].split("')")[0]
+    SANITIZE_REGEX = re.compile(r"pageSanitizer\.sanitize\('(.+?)'\)", re.DOTALL)
+    match = SANITIZE_REGEX.search(html)
+    if not match:
+        raise RuntimeError("sanitize() payload not found")
 
-    decoded_html = bytes(hex_encoded, "utf-8").decode("unicode_escape")
+    encoded = match.group(1)
 
-    return decoded_html
+    # Decode \xNN escapes
+    decoded_html = bytes(encoded, "utf-8").decode("unicode_escape")
+
+    soup = BeautifulSoup(decoded_html, "html.parser")
+    main_div = soup.find("div", class_="mainDiv")
+
+    if not main_div:
+        raise RuntimeError("mainDiv not found after decoding")
+
+    # Return either full decoded HTML or just mainDiv
+    return str(main_div)
 
 
 def calculate_year_from_reg(reg_num):
@@ -188,8 +184,8 @@ def parse_student_details(html_content):
                 reg_number = tds[i + 1].get_text(strip=True)
             elif label == "Name:":
                 name = tds[i + 1].get_text(strip=True)
-            elif label == "Batch:":
-                batch = tds[i + 1].get_text(strip=True)
+            elif label == "Combo / Batch:":
+                batch = tds[i + 1].get_text(strip=True).split("/")[-1].strip()
             elif label == "Mobile:":
                 mobile = tds[i + 1].get_text(strip=True)
             elif label == "Department:":
@@ -398,127 +394,3 @@ def get_timetable(student_data):
         )
 
     return timetable
-
-
-def fetch_calendar_html(session: requests.Session, semester: int) -> str:
-    now = datetime.now()
-    year = now.year
-
-    # Assume:
-    # - Odd semester in August–December
-    # - Even semester in January–May
-    is_odd = semester % 2 == 1
-    term = "ODD" if is_odd else "EVEN"
-
-    url = f"{BASE_URL}/srm_university/academia-academic-services/page/Academic_Planner_{year}_{str(year + 1)[-2:]}_{term}"
-    headers = {
-        "Accept": "*/*",
-        "Accept-Language": "en-US,en;q=0.9",
-        "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-        "Referer": f"{BASE_URL}/",
-        "Cache-Control": "public, max-age=3600, stale-while-revalidate=7200",
-    }
-
-    resp = session.get(url, headers=headers)
-    resp.raise_for_status()
-
-    return html.unescape(resp.text)
-
-
-def extract_month_map(soup):
-    """
-    Extracts a map from column group index to month number based on <th> headers.
-    Matches headers like "Jul '25", "Aug '25", etc.
-    """
-    current_year_suffix = str(datetime.now().year % 100)
-    headers = soup.find_all("th")
-    month_map = {}
-    seen = set()
-
-    pattern = re.compile(r"([A-Za-z]{3})\s*'?" + re.escape(current_year_suffix))
-
-    month_abbr_to_num = {
-        "Jan": 1,
-        "Feb": 2,
-        "Mar": 3,
-        "Apr": 4,
-        "May": 5,
-        "Jun": 6,
-        "Jul": 7,
-        "Aug": 8,
-        "Sep": 9,
-        "Oct": 10,
-        "Nov": 11,
-        "Dec": 12,
-    }
-
-    for i, th in enumerate(headers):
-        text = th.get_text(strip=True)
-        match = pattern.search(text)
-        if match:
-            abbr = match.group(1).title()
-            if abbr in month_abbr_to_num and abbr not in seen:
-                month_index = i // 5
-                month_map[month_index] = month_abbr_to_num[abbr]
-                seen.add(abbr)
-
-    return month_map
-
-
-def parse_calendar_events(html: str) -> dict:
-    """
-    Parses calendar HTML and extracts working days grouped by month number.
-    Does NOT hardcode month names. Handles unwrapped <td> rows (like for 31st).
-    """
-    soup = BeautifulSoup(html, "html.parser")
-    month_map = extract_month_map(soup)
-    columns_per_month = 5
-    working_days_by_month = {num: [] for num in month_map.values()}
-
-    table = soup.find("table")
-    if not table:
-        raise ValueError("No <table> found in calendar HTML")
-
-    all_tds = table.find_all("td", recursive=True)
-
-    if len(all_tds) % columns_per_month != 0:
-        print("⚠️ Warning: td count not divisible by columns_per_month x months")
-
-    row_chunks = [
-        all_tds[i : i + columns_per_month * len(month_map)]
-        for i in range(0, len(all_tds), columns_per_month * len(month_map))
-    ]
-
-    for row in row_chunks:
-        for m_index, month_num in month_map.items():
-            base = m_index * columns_per_month
-            if base + 3 >= len(row):
-                continue
-
-            try:
-                date = row[base].get_text(strip=True)
-                day = row[base + 1].get_text(strip=True)
-                event = row[base + 2].get_text(strip=True)
-                do = row[base + 3].get_text(strip=True)
-            except IndexError:
-                continue  # Not enough cells in this row
-
-            if do == "-" or not date or not do.isdigit():
-                continue
-
-            try:
-                date_int = int(date)
-                do_int = int(do)
-            except ValueError:
-                continue
-
-            working_days_by_month[month_num].append(
-                {
-                    "date": f"{datetime.now().year}-{month_num:02d}-{date_int:02d}",
-                    "day": day,
-                    "event": event,
-                    "do": do_int,
-                }
-            )
-
-    return working_days_by_month

@@ -1,8 +1,9 @@
 from datetime import datetime
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
-from itertools import islice
 from .utils import fig_to_base64
+from collections import OrderedDict
+from itertools import islice
 
 
 # Individual D/O (compact) schedule
@@ -97,45 +98,44 @@ def draw_schedule_combined(do, schedule, ax):
             )
 
 
-# Main method to return base64 timetables as JSON
-def generate_timetables_base64(date_to_schedule, date_to_do):
+def generate_timetables_base64(dayorder_data):
     result = {"individual": [], "combined": None}
 
-    # Generate individual images per D/O
-    done_dos = set()
-    for date, schedule in date_to_schedule.items():
-        do = date_to_do[date]
-        if do in done_dos:
-            continue
-        done_dos.add(do)
+    # -------- Individual timetables --------
+    for do, data in dayorder_data.items():
+        schedule = data["schedule"]
+
         fig, ax = plt.subplots(figsize=(5, max(5, len(schedule))))
         draw_schedule_compact(schedule, ax)
-        img_b64 = fig_to_base64(fig)
-        plt.close(fig)
 
         result["individual"].append(
             {
                 "do": do,
-                "date": date,
-                "day": datetime.strptime(date, "%Y-%m-%d").strftime("%A"),
-                "image": img_b64,
+                "date": data.get("date"),  # optional
+                "day": (
+                    datetime.strptime(data["date"], "%Y-%m-%d").strftime("%A")
+                    if data.get("date")
+                    else None
+                ),
+                "image": fig_to_base64(fig),
             }
         )
 
-    # Generate combined view for first 5 D/Os in order
-    combined_days = list(islice(date_to_schedule.items(), 5))
-    if combined_days:
-        if len(combined_days) == 1:
-            fig, axs = plt.subplots(1, 1, figsize=(4, 9))
-            axs = [axs]
-        else:
-            fig, axs = plt.subplots(
-                1, len(combined_days), figsize=(4 * len(combined_days), 9)
-            )
+        plt.close(fig)
 
-        for ax, (date, schedule) in zip(axs, combined_days):
-            do = date_to_do[date]
-            draw_schedule_combined(do, schedule, ax)
+    # -------- Combined timetable (D/O 1–5) --------
+    combined_items = list(islice(dayorder_data.items(), 5))
+
+    if combined_items:
+        fig, axs = plt.subplots(
+            1, len(combined_items), figsize=(4 * len(combined_items), 9)
+        )
+
+        if len(combined_items) == 1:
+            axs = [axs]
+
+        for ax, (do, data) in zip(axs, combined_items):
+            draw_schedule_combined(do, data["schedule"], ax)
 
         result["combined"] = fig_to_base64(fig)
         plt.close(fig)
@@ -143,23 +143,25 @@ def generate_timetables_base64(date_to_schedule, date_to_do):
     return result
 
 
-def generate(timetable_data, calendar_data):
-    # Map DayOrder to schedule
-    dayorder_map = {entry["DayOrder"]: entry["Schedule"] for entry in timetable_data}
+def generate(timetable_data):
+    """
+    timetable_data: list of entries like
+    {
+        "DayOrder": 1,
+        "Schedule": [...]
+    }
+    """
 
-    # Map each date to its corresponding DayOrder using calendar data
-    date_to_schedule = {}
-    date_to_do = {}
-    do_to_date = {}
-    for month in calendar_data.values():
-        for day in month:
-            date = day["date"]
-            do = day["do"]
-            if do in dayorder_map:
-                slots = [slot for slot in dayorder_map[do] if slot["Course"]]
-                if slots:
-                    date_to_schedule[date] = slots
-                    date_to_do[date] = do
-                    do_to_date[do] = date
+    # Filter empty slots and map DayOrder → schedule
+    dayorder_map = {
+        entry["DayOrder"]: [slot for slot in entry["Schedule"] if slot.get("Course")]
+        for entry in timetable_data
+        if entry.get("Schedule")
+    }
 
-    return generate_timetables_base64(date_to_schedule, date_to_do)
+    # Sort DayOrders numerically (1,2,3,4,5...)
+    ordered = OrderedDict(
+        (do, {"schedule": sched}) for do, sched in sorted(dayorder_map.items())
+    )
+
+    return generate_timetables_base64(ordered)
